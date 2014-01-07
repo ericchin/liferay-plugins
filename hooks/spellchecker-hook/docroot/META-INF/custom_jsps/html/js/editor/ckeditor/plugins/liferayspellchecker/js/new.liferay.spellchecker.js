@@ -90,7 +90,10 @@
 		if (type !== 'undefined' || type != null) {
 			// TODO: set up suggest box
 
-			createSuggestBox(instance, instance.config, instance.elements);
+			A.bind(
+				createSuggestBox,
+				instance
+			).call();
 		}
 	};
 
@@ -99,26 +102,44 @@
 
 		checkWords(
 			getText(instance.config.getText),
-			onCheckWords(instance)
+			A.bind(
+				onCheckWords,
+				instance
+			)
 		);
 	};
 
 	SpellChecker.prototype.destroy = function() {
-		closeSuggestBox();
-		window.findAndReplaceDOMText.revert();
+		var instance = this;
+
+		var suggestBox = instance.suggestBox;
+
+		A.bind(
+			closeSuggestBox,
+			instance
+		).call();
+
+		try {
+			window.findAndReplaceDOMText.revert();
+		}
+		catch (e) {
+		}
+
+		suggestBox.empty();
+		suggestBox.remove();
 	};
 
 	A.SpellChecker = SpellChecker;
 
 	/**
 	 * SuggestBox
-	 * @param instance
-	 * @param config
-	 * @param element
 	 */
 
-	var createSuggestBox = function(instance, config, element) {
-		instance.element = element;
+	var createSuggestBox = function() {
+		var instance = this;
+
+		var config = instance.config;
+		var element = instance.elements;
 
 		if (config.suggestBox.appendTo) {
 			instance.body = A.one(config.suggestBox.appendTo);
@@ -129,15 +150,24 @@
 
 		this.position = typeof config.suggestBox.position === 'function' ? config.suggestBox.position : this.position;
 
-		instance.container = A.Node.create(TPL_SUGGESTBOX);
+		instance.suggestBox = A.Node.create(TPL_SUGGESTBOX);
 		instance.loadingMsg = A.Node.create(TPL_SUGGESTBOX_LOADING);
 		instance.words = A.Node.create(TPL_SUGGESTBOX_WORDS);
 
-		A.one(element.parentNode).delegate('click', closeSuggestBox, 'html');
+		A.one(element.parentNode).delegate(
+			'click',
+			A.bind(
+				closeSuggestBox,
+				instance)
+			,
+			'html'
+		);
 	};
 
 	var closeSuggestBox = function() {
-		var suggestBox = A.one('.spellchecker-suggestbox');
+		var instance = this;
+
+		var suggestBox = instance.suggestBox;
 
 		if (suggestBox) {
 			suggestBox.setStyle('display', 'none');
@@ -181,10 +211,11 @@
 
 		instance.words.html(html);
 
-		A.one('body').delegate(
+		A.one('.' + pluginName + '-suggestbox').delegate(
 			'click',
-			A.bind(onSuggestedWordSelect, instance),
-			'.spellchecker-suggestbox a'
+			onSuggestedWordSelect,
+			'a',
+			instance
 		);
 	};
 
@@ -192,22 +223,22 @@
 	 * Events
 	 */
 
-	var onCheckWords = function(instance) {
-		return A.bind(
-			function(incorrectWords) {
-				instance.incorrectWords = incorrectWords;
+	var onCheckWords = function(incorrectWords) {
+		var instance = this;
 
-				var element = instance.elements;
-				var regExp = '(^|[^' + letterChars + '])(' + incorrectWords.join('|') + ')(?=[^' + letterChars + ']|$)';
+		var element = instance.elements;
+		var regExp = '(^|[^' + letterChars + '])(' + incorrectWords.join('|') + ')(?=[^' + letterChars + ']|$)';
 
-				window.findAndReplaceDOMText(
-					new RegExp(regExp, 'g'),
-					element,
-					highlightWordsHandler(incorrectWords, instance),
-					2
-				);
-			},
-			instance
+		instance.incorrectWords = incorrectWords;
+
+		window.findAndReplaceDOMText(
+			new RegExp(regExp, 'g'),
+			element,
+			A.bind(
+				highlightWordsHandler,
+				instance
+			),
+			2
 		);
 	};
 
@@ -215,8 +246,9 @@
 		event.stopPropagation();
 
 		var instance = this;
-		var config = this.config;
-		var container = A.one(this.container);
+
+		var config = instance.config;
+		var container = A.one(instance.suggestBox);
 
 		var wordElement = A.one(event.currentTarget);
 		var word = wordElement.html();
@@ -225,7 +257,10 @@
 
 		getSuggestions(
 			word,
-			A.bind(suggestBoxAddWords, instance)
+			A.bind(
+				suggestBoxAddWords,
+				instance
+			)
 		);
 
 		var position = getSuggestBoxPosition(config, wordElement);
@@ -234,6 +269,7 @@
 
 		container.setStyle('top', position.top);
 		container.setStyle('left', position.left);
+
 		container.setStyle('display', 'block');
 
 		A.one('body').append(container);
@@ -247,41 +283,62 @@
 		var oldWord = instance.wordElement.html();
 		var text = A.one(event.currentTarget).html();
 
-		replaceWord(oldWord, text, instance.element);
+		A.bind(
+			replaceWord,
+			instance,
+			oldWord,
+			text
+		).call();
 	};
 
 	/**
 	 * Handlers
 	 */
 
-	var highlightWordsHandler = function(incorrectWords, instance) {
-		var c;
-		var replaceElement;
+	var highlightWords = function() {
+		var instance = this;
 
-		return function(fill, i, word) {
-			var span = A.Node.create('<span />');
+		var incorrectWords = instance.incorrectWords;
 
-			span.addClass(pluginName + '-word-highlight');
+		if (!incorrectWords.length) {
+			return;
+		}
 
-			span.text(fill);
+		var element = instance.elements;
+		var regExp = new RegExp('(^|[^' + letterChars + '])(' + incorrectWords.join('|') + ')(?=[^' + letterChars + ']|$)', 'g');
 
-			span.setData('word', word);
-			span.setData('firstElement', replaceElement);
-
-			span.on('click', A.bind(onIncorrectWordSelect, instance));
-
-			span = span.getDOMNode();
-
-			if (i !== c) {
-				c = i;
-				replaceElement = span;
-			}
-
-			return span;
-		};
+		window.findAndReplaceDOMText(
+			regExp,
+			element,
+			A.bind(
+				highlightWordsHandler,
+				instance
+			),
+			2
+		);
 	};
 
-	var replaceTextHandler = function(oldWord, replacement){
+	var highlightWordsHandler = function(fill, i, word) {
+		var instance = this;
+
+		var span = A.Node.create('<span />');
+
+		span.addClass(pluginName + '-word-highlight');
+		span.text(fill);
+		span.setData('word', word);
+
+		span.on(
+			'click',
+			A.bind(
+				onIncorrectWordSelect,
+				instance
+			)
+		);
+
+		return span.getDOMNode();
+	};
+
+	var replaceTextHandler = function(oldWord, replacement) {
 		var c;
 		var replaced;
 		var replaceFill;
@@ -313,25 +370,64 @@
 	// TODO: current only works with 1 word
 	// TODO: need to figure out a way to remove the old word from the list of incorrect words
 
-	var replaceWord = function(oldWord, replacement, element) {
+	var replaceWord = function(oldWord, replacement) {
+		var instance = this;
+
+		var element = instance.elements;
+
 		var regExp = new RegExp('(^|[^' + letterChars + '])(' + oldWord + ')(?=[^' + letterChars + ']|$)', 'g');
 
-		window.findAndReplaceDOMText.revert();
+		try {
+			window.findAndReplaceDOMText.revert();
+		}
+		catch(e) {
+		}
 
-		window.findAndReplaceDOMText(regExp, element, replaceTextHandler(oldWord, replacement), 2);
+		window.findAndReplaceDOMText(
+			regExp,
+			element,
+			replaceTextHandler(
+				oldWord,
+				replacement
+			),
+			2
+		);
 
 		// TODO: highlight words again
 
-		// TODO: remove
-		window.findAndReplaceDOMText.clear();
+		var incorrectWords = instance.incorrectWords;
 
-		// regExp = new RegExp('(^|[^' + letterChars + '])(?=[^' + letterChars + ']|$)', 'g');
+		if (!incorrectWords) {
+			incorrectWords = [];
+		}
 
-		// window.findAndReplaceDOMText(regExp, element, highlightWordsHandler([]), 2);
+		var mapped = [];
 
-		// highlightWords(element);
+		A.each(
+			incorrectWords,
+			function(word) {
+				if (word == oldWord) {
+					word = null;
+				}
+				else {
+					mapped.push(word);
+				}
+			}
+		);
 
-		closeSuggestBox();
+		incorrectWords = mapped;
+
+		instance.incorrectWords = incorrectWords;
+
+		A.bind(
+			highlightWords,
+			instance
+		).call();
+
+		A.bind(
+			closeSuggestBox,
+			instance
+		).call();
 	};
 
 	/**
@@ -379,7 +475,10 @@
 			var nextSibling = node.nextSibling;
 
 			if (!nextSibling || !((nextSibling.nodeType === 3 || nextSibling.nodeType === 4) && /^\s+$/.test(nextSibling.nodeValue))) {
-				node.parentNode.insertBefore(document.createTextNode('\n'), nextSibling);
+				node.parentNode.insertBefore(
+					document.createTextNode('\n'),
+					nextSibling
+				);
 			}
 		}
 	};
