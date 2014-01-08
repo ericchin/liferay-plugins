@@ -18,11 +18,7 @@
 				lang: 'en',
 				parser: 'html',
 				suggestBox: {
-					appendTo: 'body',
-					position: 'below'
-				},
-				webservice: {
-					driver: 'liferay'
+					// numWords: 5
 				}
 			},
 
@@ -41,6 +37,14 @@
 			createSpellchecker: function() {
 				var instance = this;
 
+				instance.config.destroy = function() {
+					alert(
+						Liferay.Language.get('there-are-no-incorrectly-spelled-words')
+					);
+
+					instance.destroy();
+				};
+
 				instance.config.getText = function() {
 					var node = A.Node.create('<div />');
 					var text = instance.editor.getData();
@@ -52,17 +56,6 @@
 					instance.editor.document.$.body,
 					instance.config
 				);
-
-				// TODO: add alert for no incorrectly spelled words
-
-				/*instance.spellchecker.on(
-					'check.success',
-					function() {
-						alert(Liferay.Language.get('there-are-no-incorrectly-spelled-words'));
-
-						instance.destroy();
-					}
-				);*/
 			},
 
 			destroy: function() {
@@ -71,8 +64,6 @@
 				if (!this.spellchecker) {
 					return;
 				}
-
-				instance.config.getText = null;
 
 				instance.spellchecker.destroy();
 				instance.spellchecker = null;

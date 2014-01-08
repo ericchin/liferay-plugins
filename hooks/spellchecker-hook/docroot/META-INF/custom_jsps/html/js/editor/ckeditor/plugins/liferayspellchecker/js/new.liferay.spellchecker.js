@@ -5,27 +5,7 @@
 
 	var Lang = A.Lang;
 
-	var config = {
-		incorrectWords: {
-			container: 'body',
-			position: null
-		},
-		lang: 'en',
-		local: {
-			ignoreAll: 'Ignore all',
-			ignoreForever: 'Add to dictionary',
-			ignoreWord: 'Ignore word',
-			loading: 'Loading...',
-			noSuggestions: '(No suggestions)',
-			requestError: 'There was an error processing the request.'
-		},
-		suggestBox: {
-			appendTo: null,
-			numWords: 5,
-			offset: 2,
-			position: 'above'
-		}
-	};
+	var Language = Liferay.Language;
 
 	// TODO: change the way we get the editor
 
@@ -36,13 +16,13 @@
 	var TPL_SUGGESTBOX =
 		'<div class="' + pluginName + '-suggestbox">' +
 			'<div class="footer">' +
-				'<a href="#" class="ignore-word">' + config.local.ignoreWord + '</a>' +
-				'<a href="#" class="ignore-all">' + config.local.ignoreAll + '</a>' +
-				'<a href="#" class="ignore-forever">' + config.local.ignoreForever + '</a>' +
+				'<a href="#" class="ignore-word">' + Language.get('ignore-word') + '</a>' +
+				'<a href="#" class="ignore-all">' + Language.get('ignore-all') + '</a>' +
+				'<a href="#" class="ignore-forever">' + Language.get('ignore-forever') + '</a>' +
 			'</div>' +
 		'</div>';
 
-	var TPL_SUGGESTBOX_LOADING = '<div class="loading">' + config.local.loading + '</div>';
+	var TPL_SUGGESTBOX_LOADING = '<div class="loading">' + Language.get('loading') + '</div>';
 
 	var TPL_SUGGESTBOX_WORDS = '<div class="words"></div>';
 
@@ -88,8 +68,6 @@
 		var type = typeof instance.elements;
 
 		if (type !== 'undefined' || type != null) {
-			// TODO: set up suggest box
-
 			A.bind(
 				createSuggestBox,
 				instance
@@ -138,17 +116,7 @@
 	var createSuggestBox = function() {
 		var instance = this;
 
-		var config = instance.config;
 		var element = instance.elements;
-
-		if (config.suggestBox.appendTo) {
-			instance.body = A.one(config.suggestBox.appendTo);
-		}
-		else {
-			instance.body = (instance.element.length && instance.element[0].nodeName === 'BODY') ? instance.element : 'body';
-		}
-
-		this.position = typeof config.suggestBox.position === 'function' ? config.suggestBox.position : this.position;
 
 		instance.suggestBox = A.Node.create(TPL_SUGGESTBOX);
 		instance.loadingMsg = A.Node.create(TPL_SUGGESTBOX_LOADING);
@@ -174,6 +142,21 @@
 		}
 	};
 
+	var displaySuggestBox = function(config, suggestBox, wordElement, words) {
+		var container = A.one(suggestBox);
+
+		var position = getSuggestBoxPosition(config, wordElement);
+
+		container.prepend(words);
+
+		container.setStyle('top', position.top);
+		container.setStyle('left', position.left);
+
+		container.setStyle('display', 'block');
+
+		A.one('body').append(container);
+	};
+
 	var getSuggestBoxPosition = function(config, wordElement) {
 		var p1 = editor.one('iframe').getXY();
 		var p2 = editor.getXY();
@@ -196,7 +179,7 @@
 		var config = this.config;
 
 		if ((typeof words === 'undefined') || (!words.length)) {
-			html = '<em>' + config.local.noSuggestions + '</em>';
+			html = '<em>' + Language.get('no-suggestions') + '</em>';
 		}
 		else {
 			A.each(
@@ -231,6 +214,12 @@
 
 		instance.incorrectWords = incorrectWords;
 
+		if (!incorrectWords.length) {
+			instance.config.destroy();
+
+			return;
+		}
+
 		window.findAndReplaceDOMText(
 			new RegExp(regExp, 'g'),
 			element,
@@ -247,9 +236,6 @@
 
 		var instance = this;
 
-		var config = instance.config;
-		var container = A.one(instance.suggestBox);
-
 		var wordElement = A.one(event.currentTarget);
 		var word = wordElement.html();
 
@@ -263,16 +249,7 @@
 			)
 		);
 
-		var position = getSuggestBoxPosition(config, wordElement);
-
-		container.prepend(this.words);
-
-		container.setStyle('top', position.top);
-		container.setStyle('left', position.left);
-
-		container.setStyle('display', 'block');
-
-		A.one('body').append(container);
+		displaySuggestBox(instance.config, instance.suggestBox, instance.wordElement, instance.words);
 	};
 
 	var onSuggestedWordSelect = function(event) {
@@ -282,6 +259,10 @@
 
 		var oldWord = instance.wordElement.html();
 		var text = A.one(event.currentTarget).html();
+
+		if (text == Language.get('ignore-word')) {
+			text = oldWord;
+		}
 
 		A.bind(
 			replaceWord,
@@ -366,10 +347,6 @@
 		};
 	};
 
-	// TODO: fix
-	// TODO: current only works with 1 word
-	// TODO: need to figure out a way to remove the old word from the list of incorrect words
-
 	var replaceWord = function(oldWord, replacement) {
 		var instance = this;
 
@@ -392,8 +369,6 @@
 			),
 			2
 		);
-
-		// TODO: highlight words again
 
 		var incorrectWords = instance.incorrectWords;
 
@@ -419,15 +394,8 @@
 
 		instance.incorrectWords = incorrectWords;
 
-		A.bind(
-			highlightWords,
-			instance
-		).call();
-
-		A.bind(
-			closeSuggestBox,
-			instance
-		).call();
+		A.bind(highlightWords, instance).call();
+		A.bind(closeSuggestBox, instance).call();
 	};
 
 	/**
@@ -443,10 +411,19 @@
 			'[' + punctuationChars + ']+(\\s+|$)'
 		].join('|');
 
-		text = text.replace(new RegExp(puncExpr, 'g'), ' ');
+		text = text.replace(
+			new RegExp(
+				puncExpr,
+				'g'
+			),
+			' '
+		);
 
 		text = Lang.trim(
-			text.replace(/\s{2,}/g, ' ')
+			text.replace(
+				/\s{2,}/g,
+				' '
+			)
 		);
 
 		var array = text.split(' ');
@@ -509,8 +486,24 @@
 	};
 
 	/**
-	* Another API
-	**/
+	 * findAndReplaceDOMText v 0.2
+	 * @author James Padolsey http://james.padolsey.com
+	 * @license http://unlicense.org/UNLICENSE
+	 *
+	 * Matches the text of a DOM node against a regular expression
+	 * and replaces each match (or node-separated portions of the match)
+	 * in the specified element.
+	 *
+	 * Example: Wrap 'test' in <em>:
+	 *   <p id="target">This is a test</p>
+	 *   <script>
+	 *     findAndReplaceDOMText(
+	 *       /test/,
+	 *       document.getElementById('target'),
+	 *       'em'
+	 *     );
+	 *   </script>
+	 */
 
 	window.findAndReplaceDOMText = (function() {
 		function findAndReplaceDOMText(regex, node, replacementNode, captureGroup) {
@@ -541,11 +534,6 @@
 		}
 
 		var previousWords;
-
-		// TODO: remove later
-		findAndReplaceDOMText.clear = function clear() {
-			previousWords = [];
-		};
 
 		findAndReplaceDOMText.revert = function revert() {
 			for (var i = 0, l = previousWords.length; i < l; ++i) {
@@ -614,6 +602,57 @@
 					previousWords.push(el);
 
 					return el;
+				}
+				else {
+					before = document.createTextNode(startNode.data.substring(0, range.startNodeIndex));
+					after = document.createTextNode(endNode.data.substring(range.endNodeIndex));
+
+					var elA = makeReplacementNode(startNode.data.substring(range.startNodeIndex), matchIndex, range.match[0]);
+
+					var innerEls = [];
+
+					for (var i = 0, l = range.innerNodes.length; i < l; ++i) {
+						var innerNode = range.innerNodes[i];
+
+						var innerEl = makeReplacementNode(
+							innerNode.data,
+							matchIndex, range.match[0]
+						);
+
+						innerNode.parentNode.replaceChild(innerEl, innerNode);
+						innerEls.push(innerEl);
+					}
+
+					var elB = makeReplacementNode(
+						endNode.data.substring(0, range.endNodeIndex),
+						matchIndex, range.match[0]
+					);
+
+					startNode.parentNode.insertBefore(before, startNode);
+					startNode.parentNode.insertBefore(elA, startNode);
+					startNode.parentNode.removeChild(startNode);
+
+					endNode.parentNode.insertBefore(elB, endNode);
+					endNode.parentNode.insertBefore(after, endNode);
+					endNode.parentNode.removeChild(endNode);
+
+					/*reverts.push(
+						function() {
+							innerEls.unshift(elA);
+							innerEls.push(elB);
+
+							for (var i = 0, l = innerEls.length; i < l; ++i) {
+								var el = innerEls[i];
+								var pnode = el.parentNode;
+
+								pnode.insertBefore(el.firstChild, el);
+								pnode.removeChild(el);
+								pnode.normalize();
+							}
+						}
+					);*/
+
+					return elB;
 				}
 			};
 		}
