@@ -236,8 +236,16 @@
 
 		var instance = this;
 
+		// TODO: regex needs to capture whole word, not partial
+		// TODO: dennouncing, when split (see badsyntax demo)
+
 		var wordElement = A.one(event.currentTarget);
-		var word = wordElement.html();
+		// var word = wordElement.html();
+		var word = wordElement.getData('word');
+
+		if (!word) {
+			word = wordElement.html();
+		}
 
 		instance.wordElement = wordElement;
 
@@ -537,7 +545,8 @@
 
 		findAndReplaceDOMText.revert = function revert() {
 			for (var i = 0, l = previousWords.length; i < l; ++i) {
-				_revertWord(previousWords[i]);
+				// _revertWord(previousWords[i]);
+				previousWords[i]();
 			}
 
 			previousWords = [];
@@ -599,7 +608,15 @@
 
 					node.parentNode.removeChild(node);
 
-					previousWords.push(el);
+					previousWords.push(
+						function() {
+							var parentNode = el.parentNode;
+
+							parentNode.insertBefore(el.firstChild, el);
+							parentNode.removeChild(el);
+							parentNode.normalize();
+						}
+					);
 
 					return el;
 				}
@@ -636,7 +653,7 @@
 					endNode.parentNode.insertBefore(after, endNode);
 					endNode.parentNode.removeChild(endNode);
 
-					/*reverts.push(
+					previousWords.push(
 						function() {
 							innerEls.unshift(elA);
 							innerEls.push(elB);
@@ -650,7 +667,7 @@
 								pnode.normalize();
 							}
 						}
-					);*/
+					);
 
 					return elB;
 				}
@@ -699,14 +716,6 @@
 			fixWhiteSpace(tmpNode);
 
 			return txt;
-		}
-
-		function _revertWord(element) {
-			var parentNode = element.parentNode;
-
-			parentNode.insertBefore(element.firstChild, element);
-			parentNode.removeChild(element);
-			parentNode.normalize();
 		}
 
 		function _stepThroughMatches(node, matches, replaceFn) {
