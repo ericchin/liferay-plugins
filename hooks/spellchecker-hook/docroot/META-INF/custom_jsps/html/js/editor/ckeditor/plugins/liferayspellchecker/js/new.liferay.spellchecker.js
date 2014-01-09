@@ -543,6 +543,11 @@
 
 		var previousWords;
 
+		// TODO: reverting words may be broken; invalid capture group
+		// if (!cg) throw 'Invalid capture group';
+		// TODO: it could be something with the function in previousWords, or 1 of the words changed
+		// TODO: the matched array may contain blank elements
+
 		findAndReplaceDOMText.revert = function revert() {
 			for (var i = 0, l = previousWords.length; i < l; ++i) {
 				// _revertWord(previousWords[i]);
