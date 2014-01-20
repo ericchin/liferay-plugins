@@ -18,7 +18,6 @@
 			'<div class="footer">' +
 				'<a href="#" class="ignore-word">' + Language.get('ignore-word') + '</a>' +
 				'<a href="#" class="ignore-all">' + Language.get('ignore-all') + '</a>' +
-				'<a href="#" class="ignore-forever">' + Language.get('ignore-forever') + '</a>' +
 			'</div>' +
 		'</div>';
 
@@ -52,13 +51,6 @@
 		);
 	};
 
-	/**
-	 * SpellChecker
-	 * @param elements
-	 * @param config
-	 * @constructor
-	 */
-
 	var SpellChecker = function(elements, config) {
 		var instance = this;
 
@@ -68,10 +60,7 @@
 		var type = typeof instance.elements;
 
 		if (type !== 'undefined' || type != null) {
-			A.bind(
-				createSuggestBox,
-				instance
-			).call();
+			A.bind(createSuggestBox, instance).call();
 		}
 	};
 
@@ -80,10 +69,7 @@
 
 		checkWords(
 			getText(instance.config.getText),
-			A.bind(
-				onCheckWords,
-				instance
-			)
+			A.bind(onCheckWords, instance)
 		);
 	};
 
@@ -92,10 +78,7 @@
 
 		var suggestBox = instance.suggestBox;
 
-		A.bind(
-			closeSuggestBox,
-			instance
-		).call();
+		A.bind(closeSuggestBox, instance).call();
 
 		try {
 			window.findAndReplaceDOMText.revert();
@@ -109,10 +92,6 @@
 
 	A.SpellChecker = SpellChecker;
 
-	/**
-	 * SuggestBox
-	 */
-
 	var createSuggestBox = function() {
 		var instance = this;
 
@@ -122,14 +101,50 @@
 		instance.loadingMsg = A.Node.create(TPL_SUGGESTBOX_LOADING);
 		instance.words = A.Node.create(TPL_SUGGESTBOX_WORDS);
 
-		A.one(element.parentNode).delegate(
-			'click',
-			A.bind(
-				closeSuggestBox,
-				instance)
-			,
-			'html'
+		A.one(element.parentNode).delegate('click', closeSuggestBox, 'html', instance);
+	};
+
+	var cleanText = function(text) {
+		text = text.replace(/\xA0|\s+|(&nbsp;)/mg, ' ');
+
+		var puncExpr = [
+			'(^|\\s+)[' + punctuationChars + ']+',
+			'[' + punctuationChars + ']+\\s+[' + punctuationChars + ']+',
+			'[' + punctuationChars + ']+(\\s+|$)'
+		].join('|');
+
+		text = text.replace(
+			new RegExp(
+				puncExpr,
+				'g'
+			),
+			' '
 		);
+
+		text = Lang.trim(
+			text.replace(
+				/\s{2,}/g,
+				' '
+			)
+		);
+
+		var words = text.split(' ');
+		var mapped = [];
+
+		A.each(
+			words,
+			function(word) {
+				word = (/^\d+$/.test(word)) ? null : word;
+
+				if (word != null) {
+					mapped.push(word);
+				}
+			}
+		);
+
+		text = mapped.join(' ');
+
+		return text;
 	};
 
 	var closeSuggestBox = function() {
@@ -149,12 +164,27 @@
 
 		container.prepend(words);
 
-		container.setStyle('top', position.top);
 		container.setStyle('left', position.left);
+		container.setStyle('top', position.top);
 
 		container.setStyle('display', 'block');
 
 		A.one('body').append(container);
+	};
+
+	var fixWhiteSpace = function(node) {
+		var nodeNameLower = node.nodeName.toLowerCase();
+
+		if (AArray.indexOf(blockElements, nodeNameLower) !== -1) {
+			var nextSibling = node.nextSibling;
+
+			if (!nextSibling || !((nextSibling.nodeType === 3 || nextSibling.nodeType === 4) && /^\s+$/.test(nextSibling.nodeValue))) {
+				node.parentNode.insertBefore(
+					document.createTextNode('\n'),
+					nextSibling
+				);
+			}
+		}
 	};
 
 	var getSuggestBoxPosition = function(config, wordElement) {
@@ -166,45 +196,75 @@
 		var top = p3[1] + p2[1] + (p1[1] - p2[1]) + wordElement.innerHeight();
 
 		return {
-			top: top,
-			left: left
+			left: left,
+			top: top
 		};
 	};
 
-	var suggestBoxAddWords = function(words) {
+	var getText = function(textGetter) {
 		var instance = this;
-		var html;
-		var mapped = [];
 
-		var config = this.config;
+		var array = [];
+		var elements = instance.elements;
+		var isArray = !!(AArray.test(elements) == 1);
 
-		if ((typeof words === 'undefined') || (!words.length)) {
-			html = '<em>' + Language.get('no-suggestions') + '</em>';
-		}
-		else {
-			A.each(
-				words,
-				function(word) {
-					mapped.push('<a href="#">' + word + '</a>');
-				}
-			);
-
-			html = mapped.slice(0, config.suggestBox.numWords).join('');
+		if (!isArray) {
+			elements = AArray(elements);
 		}
 
-		instance.words.html(html);
+		A.each(
+			elements,
+			function(element) {
+				var text = textGetter(element);
 
-		A.one('.' + pluginName + '-suggestbox').delegate(
-			'click',
-			onSuggestedWordSelect,
-			'a',
-			instance
+				array.push(
+					cleanText(text)
+				);
+			}
+		);
+
+		return array;
+	};
+
+	var highlightWords = function() {
+		var instance = this;
+
+		var incorrectWords = instance.incorrectWords;
+
+		if (!incorrectWords.length) {
+			return;
+		}
+
+		var element = instance.elements;
+		var regExp = new RegExp('(^|[^' + letterChars + '])(' + incorrectWords.join('|') + ')(?=[^' + letterChars + ']|$)', 'g');
+
+		window.findAndReplaceDOMText(
+			regExp,
+			element,
+			A.bind(highlightWordsHandler, instance),
+			2
 		);
 	};
 
-	/**
-	 * Events
-	 */
+	var highlightWordsHandler = function(fill, i, word) {
+		var instance = this;
+
+		var span = A.Node.create('<span />');
+
+		span.addClass(pluginName + '-word-highlight');
+		span.text(fill);
+		span.setData('word', word);
+
+		span.on(
+			'click',
+			A.bind(
+				onIncorrectWordSelect,
+				instance
+			)
+		);
+
+		return span.getDOMNode();
+	};
 
 	var onCheckWords = function(incorrectWords) {
 		var instance = this;
@@ -236,11 +296,7 @@
 
 		var instance = this;
 
-		// TODO: regex needs to capture whole word, not partial
-		// TODO: dennouncing, when split (see badsyntax demo)
-
 		var wordElement = A.one(event.currentTarget);
-		// var word = wordElement.html();
 		var word = wordElement.getData('word');
 
 		if (!word) {
@@ -265,66 +321,14 @@
 
 		var instance = this;
 
-		var oldWord = instance.wordElement.html();
+		var oldWord = instance.wordElement.getData('word');
 		var text = A.one(event.currentTarget).html();
 
 		if (text == Language.get('ignore-word')) {
 			text = oldWord;
 		}
 
-		A.bind(
-			replaceWord,
-			instance,
-			oldWord,
-			text
-		).call();
-	};
-
-	/**
-	 * Handlers
-	 */
-
-	var highlightWords = function() {
-		var instance = this;
-
-		var incorrectWords = instance.incorrectWords;
-
-		if (!incorrectWords.length) {
-			return;
-		}
-
-		var element = instance.elements;
-		var regExp = new RegExp('(^|[^' + letterChars + '])(' + incorrectWords.join('|') + ')(?=[^' + letterChars + ']|$)', 'g');
-
-		window.findAndReplaceDOMText(
-			regExp,
-			element,
-			A.bind(
-				highlightWordsHandler,
-				instance
-			),
-			2
-		);
-	};
-
-	var highlightWordsHandler = function(fill, i, word) {
-		var instance = this;
-
-		var span = A.Node.create('<span />');
-
-		span.addClass(pluginName + '-word-highlight');
-		span.text(fill);
-		span.setData('word', word);
-
-		span.on(
-			'click',
-			A.bind(
-				onIncorrectWordSelect,
-				instance
-			)
-		);
-
-		return span.getDOMNode();
+		A.bind(replaceWord, instance, oldWord, text).call();
 	};
 
 	var replaceTextHandler = function(oldWord, replacement) {
@@ -389,108 +393,50 @@
 		A.each(
 			incorrectWords,
 			function(word) {
-				if (word == oldWord) {
-					word = null;
-				}
-				else {
+				if (word != oldWord) {
 					mapped.push(word);
 				}
 			}
 		);
 
-		incorrectWords = mapped;
-
-		instance.incorrectWords = incorrectWords;
+		instance.incorrectWords = mapped;
 
 		A.bind(highlightWords, instance).call();
 		A.bind(closeSuggestBox, instance).call();
 	};
 
-	/**
-	 * Fix text
-	 */
-
-	var cleanText = function(text) {
-		text = text.replace(/\xA0|\s+|(&nbsp;)/mg, ' ');
-
-		var puncExpr = [
-			'(^|\\s+)[' + punctuationChars + ']+',
-			'[' + punctuationChars + ']+\\s+[' + punctuationChars + ']+',
-			'[' + punctuationChars + ']+(\\s+|$)'
-		].join('|');
-
-		text = text.replace(
-			new RegExp(
-				puncExpr,
-				'g'
-			),
-			' '
-		);
-
-		text = Lang.trim(
-			text.replace(
-				/\s{2,}/g,
-				' '
-			)
-		);
-
-		var array = text.split(' ');
+	var suggestBoxAddWords = function(words) {
+		var instance = this;
+		var html;
 		var mapped = [];
 
-		A.each(
-			array,
-			function(word) {
-				var a = (/^\d+$/.test(word)) ? null : word;
+		var config = instance.config;
 
-				if (a != null) {
-					mapped.push(a);
+		var word = instance.wordElement.html();
+
+		var isUppercase = /^[A-Z]/.test(word);
+
+		if ((typeof words === 'undefined') || (!words.length)) {
+			html = '<em>' + Language.get('no-suggestions') + '</em>';
+		}
+		else {
+			A.each(
+				words,
+				function(word) {
+					if (isUppercase) {
+						word = word.substr(0, 1).toUpperCase() + word.substr(1);
+					}
+
+					mapped.push('<a href="#">' + word + '</a>');
 				}
-			}
-		);
+			);
 
-		text = mapped.join(' ');
-
-		return text;
-	};
-
-	var fixWhiteSpace = function(node) {
-		var nodeNameLower = node.nodeName.toLowerCase();
-
-		if (AArray.indexOf(blockElements, nodeNameLower) !== -1) {
-			var nextSibling = node.nextSibling;
-
-			if (!nextSibling || !((nextSibling.nodeType === 3 || nextSibling.nodeType === 4) && /^\s+$/.test(nextSibling.nodeValue))) {
-				node.parentNode.insertBefore(
-					document.createTextNode('\n'),
-					nextSibling
-				);
-			}
-		}
-	};
-
-	var getText = function(textGetter) {
-		var instance = this;
-
-		var array = [];
-		var elements = instance.elements;
-		var isArray = !!(AArray.test(elements) == 1);
-
-		if (!isArray) {
-			elements = AArray(elements);
+			html = mapped.slice(0, config.suggestBox.numWords).join('');
 		}
 
-		A.each(
-			elements,
-			function(element) {
-				var text = textGetter(element);
+		instance.words.html(html);
 
-				array.push(
-					cleanText(text)
-				);
-			}
-		);
-
-		return array;
+		A.one('.' + pluginName + '-suggestbox').delegate('click', onSuggestedWordSelect, 'a', instance);
 	};
 
 	/**
@@ -543,14 +489,8 @@
 
 		var previousWords;
 
-		// TODO: reverting words may be broken; invalid capture group
-		// if (!cg) throw 'Invalid capture group';
-		// TODO: it could be something with the function in previousWords, or 1 of the words changed
-		// TODO: the matched array may contain blank elements
-
 		findAndReplaceDOMText.revert = function revert() {
 			for (var i = 0, l = previousWords.length; i < l; ++i) {
-				// _revertWord(previousWords[i]);
 				previousWords[i]();
 			}
 

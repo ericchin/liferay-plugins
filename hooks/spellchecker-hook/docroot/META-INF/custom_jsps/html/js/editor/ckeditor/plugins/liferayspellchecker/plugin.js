@@ -61,7 +61,7 @@
 			destroy: function() {
 				var instance = this;
 
-				if (!this.spellchecker) {
+				if (!instance.spellchecker) {
 					return;
 				}
 
