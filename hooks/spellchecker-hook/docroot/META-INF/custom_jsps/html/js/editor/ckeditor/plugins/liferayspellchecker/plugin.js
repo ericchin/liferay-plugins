@@ -27,10 +27,9 @@
 
 				instance.editor.setReadOnly(true);
 				instance.editor.commands.liferayspellchecker.toggleState();
-				instance.editorWindow = this.editor.document.getWindow().$;
+				instance.editorWindow = instance.editor.document.getWindow().$;
 
 				instance.createSpellchecker();
-				// instance.spellchecker.check();
 				instance.spellchecker.checkSpelling();
 			},
 
@@ -75,9 +74,12 @@
 			init: function(editor) {
 				var instance = this;
 
-				var dependency = CKEDITOR.getUrl(instance.path + 'js/new.liferay.spellchecker.js');
+				var dependencies = [
+					CKEDITOR.getUrl(instance.path + 'js/aui-replacetext.js'),
+					CKEDITOR.getUrl(instance.path + 'js/liferay.spellchecker.js')
+				];
 
-				CKEDITOR.scriptLoader.load(dependency);
+				CKEDITOR.scriptLoader.load(dependencies);
 
 				editor.addCommand(
 					'liferayspellchecker',
