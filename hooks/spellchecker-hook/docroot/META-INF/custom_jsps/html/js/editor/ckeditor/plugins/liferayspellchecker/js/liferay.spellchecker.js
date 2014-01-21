@@ -7,10 +7,6 @@
 
 		var Language = Liferay.Language;
 
-		// TODO: change the way we get the editor
-
-		var editor = A.one('.journal-article-component-container');
-
 		var pluginName = 'spellchecker';
 
 		var TPL_SUGGESTBOX =
@@ -51,6 +47,8 @@
 
 		var SpellChecker = function(elements, config) {
 			var instance = this;
+
+			config.editor = A.one('#' + config.containerId);
 
 			instance.elements = elements;
 			instance.config = config;
@@ -171,6 +169,8 @@
 		};
 
 		var getSuggestBoxPosition = function(config, wordElement) {
+			var editor = config.editor;
+
 			var p1 = editor.one('iframe').getXY();
 			var p2 = editor.getXY();
 			var p3 = A.one(wordElement).getXY();
@@ -309,6 +309,13 @@
 
 			if (text == Language.get('ignore-word')) {
 				text = oldWord;
+			}
+
+			if (text == Language.get('ignore-all')) {
+				A.ReplaceText.revert();
+				A.bind(closeSuggestBox, instance).call();
+
+				return;
 			}
 
 			A.bind(replaceWord, instance, oldWord, text).call();

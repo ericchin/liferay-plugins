@@ -32,7 +32,8 @@
 	border-top: 1px solid #DDD;
 }
 
-.spellchecker-suggestbox .footer .ignore-all, .spellchecker-suggestbox .footer .ignore-forever {
+/*.spellchecker-suggestbox .footer .ignore-all,*/
+.spellchecker-suggestbox .footer .ignore-forever {
 	display: none;
 }
 

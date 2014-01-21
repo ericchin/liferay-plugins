@@ -15,10 +15,8 @@
 		'liferayspellchecker',
 		{
 			config: {
-				lang: 'en',
-				parser: 'html',
 				suggestBox: {
-					// numWords: 5
+					numWords: undefined
 				}
 			},
 
@@ -50,6 +48,8 @@
 
 					return node.append(text).attr('textContent');
 				};
+
+				instance.config.containerId = 'cke_' + instance.editor.name;
 
 				instance.spellchecker = new A.SpellChecker(
 					instance.editor.document.$.body,
