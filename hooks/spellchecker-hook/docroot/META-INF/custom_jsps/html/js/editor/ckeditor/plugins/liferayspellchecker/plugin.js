@@ -93,7 +93,7 @@
 				);
 
 				editor.ui.addButton(
-					'LiferaySpellChecker',
+					'liferayspellchecker',
 					{
 						command: 'liferayspellchecker',
 						icon: baseJscPluginPath + '/assets/spellchecker.png',

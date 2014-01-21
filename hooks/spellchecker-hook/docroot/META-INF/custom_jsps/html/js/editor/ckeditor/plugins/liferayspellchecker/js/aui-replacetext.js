@@ -1,4 +1,5 @@
 AUI().add('aui-replacetext', function(A) {
+
 	var REPLACE_TEXT = 'replaceText';
 
 	var AArray = A.Array;
@@ -11,17 +12,20 @@ AUI().add('aui-replacetext', function(A) {
 		{
 			NAME: REPLACE_TEXT,
 
+			EXTENDS: A.Base,
+
 			findAndReplaceDOMText: function(regex, node, replacementNode, captureGroup) {
 				var instance = this;
 
 				var m;
 				var matches = [];
+
 				var text = instance._getText(node);
 
 				var replaceFn = instance._genReplacer(replacementNode);
 
 				if (typeof text === 'undefined') {
-					return
+					return;
 				}
 
 				if (regex.global) {
@@ -91,7 +95,7 @@ AUI().add('aui-replacetext', function(A) {
 					makeReplacementNode = nodeName;
 				}
 
-				return function replace(range) {
+				return function(range) {
 					var after,
 						before,
 						endNode = range.endNode,
@@ -100,24 +104,25 @@ AUI().add('aui-replacetext', function(A) {
 
 					if (startNode === endNode) {
 						var node = startNode;
+						var parent = node.parentNode;
 
 						if (range.startNodeIndex > 0) {
 							before = document.createTextNode(node.data.substring(0, range.startNodeIndex));
 
-							node.parentNode.insertBefore(before, node);
+							parent.insertBefore(before, node);
 						}
 
 						var el = makeReplacementNode(range.match[0], matchIndex, range.match[0]);
 
-						node.parentNode.insertBefore(el, node);
+						parent.insertBefore(el, node);
 
 						if (range.endNodeIndex < node.length) {
 							after = document.createTextNode(node.data.substring(range.endNodeIndex));
 
-							node.parentNode.insertBefore(after, node);
+							parent.insertBefore(after, node);
 						}
 
-						node.parentNode.removeChild(node);
+						parent.removeChild(node);
 
 						previousWords.push(
 							function() {
@@ -294,6 +299,7 @@ AUI().add('aui-replacetext', function(A) {
 					while (true) {
 						if (curNode.nextSibling) {
 							curNode = curNode.nextSibling;
+
 							break;
 						}
 						else if (curNode.parentNode !== node) {
@@ -309,4 +315,5 @@ AUI().add('aui-replacetext', function(A) {
 	);
 
 	A.ReplaceText = ReplaceText;
+
 }, '1.0', {requires: ['aui-base']});
